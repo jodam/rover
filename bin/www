@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('rover:server');
+var http = require('http');
+
+var Pca9685Driver = require("pca9685").Pca9685Driver;
+var i2cBus = require("i2c-bus");
+
+// var gpio = require("pi-gpio");
+//
+// gpio.open(13, "output", function(err) {		// Open pin 16 for output
+//   gpio.write(13, 0, function() {			// Set pin 16 high (1)
+//     console.log('222')
+//     //gpio.close(13);						// Close pin 16
+//   });
+// });
+
+
+
+var config = require('../config');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * harware
+ */
+
+var options = {
+  i2c: i2cBus.openSync(1),
+  address: 0x40,
+  frequency: 50,
+  debug: false
+
+};
+
+pwm = new Pca9685Driver(options, function() {
+  console.log("Initialization done");
+  pwm.setPulseLength(3, 1395);
+
+
+});
+// использование Math.round() даст неравномерное распределение!
+function getRandomInt(min, max)
+{
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * io
+ */
+var io = require('socket.io')(server);
+
+var dataPositon = 530;
+io.on('connection', function (socket) {
+
+  socket.emit('updateFront', { position: dataPositon });
+
+  socket.on('servoChange', function (data) {
+    pwm.setPulseLength(3, data.position);
+    pwm.setPulseLength(4, data.position);
+    socket.broadcast.emit('updateFront', { position: data.position });
+    dataPositon = data.position;
+
+  });
+  
+  // setTimeout(function() {
+  //   pwm.setDutyCycle(1,0,getRandomInt(0, 4095));
+  //   pwm.setDutyCycle(2,0,getRandomInt(0, 4095));
+  // }, 1)
+
+
+});
+
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}

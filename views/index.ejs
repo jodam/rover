@@ -1,0 +1,49 @@
+<% layout ('/layout/page') -%>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    var socket = io.connect();
+    var defaultPosition = 1395;
+
+    socket.on('updateFront', function (data) {
+
+        defaultPosition = data.position;
+        $(".slider").slider('option','value',defaultPosition);
+        $( "#slider-result" ).html(defaultPosition);
+        console.log(defaultPosition)
+    });
+
+    $(document).ready(function (){
+        $('#servo').keyup(function(e){
+            if(e.keyCode == 13)
+            {
+                console.log('send '+$(this).val())
+                socket.emit('servoChange', { position: $(this).val() });
+            }
+        });
+
+
+
+            // Указываем class блока div где будет ползунок.
+            $( ".slider" ).slider({
+                animate: true, // Анимация ползунка
+                range: "min", // Фон пути ползунка, если это свойство убрать, то синей линии не будет.
+                value: defaultPosition, // Значение по умолчанию.
+                min: 0, // Минимальная сумма.
+                max: 4000, // Максимальная сумма.
+                step: 1, // Шаг диапазона.
+
+                // Вывод диапазона
+                slide: function( event, ui ) {
+                    $( "#slider-result" ).html(ui.value);
+                    socket.emit('servoChange', { position: ui.value });
+                },
+            });
+
+    })
+</script>
+<img src="http://pi.spyvak.name:8080?action=stream"/>
+<h1>Spyvak eye</h1>
+<!--<%= title %>-->
+<div class="slider"></div>
+<div id="slider-result">start</div>
